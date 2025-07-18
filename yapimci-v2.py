@@ -164,7 +164,7 @@ class Yapimci:
             if not self.adimi_gec("varlik_uretimi"):
                 log("Adım 3: Varlık Üretimi (Ses ve Görsel - Paralel)")
                 ses_proses = subprocess.Popen(["python", "moduller/seslendirmen.py", json_yolu, ses_klasoru])
-                gorsel_proses = subprocess.Popen(["python", "moduller/gorsel-yonetmen.py", json_yolu, gorsel_klasoru])
+                gorsel_proses = subprocess.Popen(["python", "moduller/gorsel_yonetmen.py", json_yolu, gorsel_klasoru])
                 
                 ses_exit_code = ses_proses.wait()
                 gorsel_exit_code = gorsel_proses.wait()
