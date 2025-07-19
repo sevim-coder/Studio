@@ -10,6 +10,7 @@ import datetime
 import shutil
 from config_manager import config
 from api_manager import get_api_manager
+from checkpoint_manager import CheckpointManager, OperationType
 
 # Custom Exception Classes
 class YapimciError(Exception):
@@ -70,6 +71,9 @@ class FlexibleYapimci:
         
         # API Manager'ı başlat
         self.api_manager = get_api_manager()
+        
+        # Checkpoint manager - initially None, will be set when project starts
+        self.checkpoint_manager = None
         
         # Ayarları config'den al
         self.log_file = self.config_manager.get('sistem_ayarlari', 'log_dosyasi', default='yapimci_logs.txt')
@@ -318,7 +322,7 @@ class FlexibleYapimci:
         return gunluk_gorevler[gun]
 
     def modulleri_calistir(self, kanal, konu, harf_sayisi):
-        """Multi-API modüllerini sırasıyla çalıştır"""
+        """Multi-API modüllerini sırasıyla çalıştır - Checkpoint/Resume destekli"""
         
         txt_yolu = os.path.join(self.proje_yolu, "senaryo.txt")
         json_yolu = os.path.join(self.proje_yolu, "proje.json")
@@ -328,21 +332,25 @@ class FlexibleYapimci:
 
         try:
             # Adım 1: Multi-API Senaryo Üretimi
-            if not self.adimi_gec("senaryo"):
+            if not self.checkpoint_manager.start_operation("senaryo", OperationType.SCENARIO):
                 log("Adım 1: Multi-API Senaryo Üretimi")
                 if not komut_calistir(["python", "moduller/senarist_multiapi.py", kanal, konu, harf_sayisi, "--cikti_yolu", txt_yolu]):
-                    raise Exception("Multi-API Senarist modülü başarısız oldu.")
+                    self.checkpoint_manager.fail_operation("senaryo", "Multi-API Senarist modülü başarısız oldu")
+                self.checkpoint_manager.complete_operation("senaryo", [txt_yolu])
+                # Legacy support
                 self.adimi_tamamla("senaryo", [txt_yolu])
 
             # Adım 2: Yönetmenlik (JSON oluşturuluyor - değişiklik yok)
-            if not self.adimi_gec("yonetmen"):
+            if not self.checkpoint_manager.start_operation("yonetmen", OperationType.SCENARIO):
                 log("Adım 2: Yönetmenlik (JSON Proje Oluşturma)")
                 if not komut_calistir(["python", "moduller/yonetmen.py", txt_yolu, json_yolu]):
-                    raise Exception("Yönetmen modülü başarısız oldu.")
+                    self.checkpoint_manager.fail_operation("yonetmen", "Yönetmen modülü başarısız oldu")
+                self.checkpoint_manager.complete_operation("yonetmen", [json_yolu])
+                # Legacy support
                 self.adimi_tamamla("yonetmen")
 
             # Adım 3: Multi-API Varlık Üretimi (SIRALİ)
-            if not self.adimi_gec("varlik_uretimi"):
+            if not self.checkpoint_manager.start_operation("varlik_uretimi", OperationType.AUDIO):
                 log("Adım 3: Multi-API Varlık Üretimi (Ses ve Görsel - Sıralı)")
                 os.makedirs(ses_klasoru, exist_ok=True)
                 os.makedirs(gorsel_klasoru, exist_ok=True)
@@ -350,20 +358,23 @@ class FlexibleYapimci:
                 # Önce Multi-API seslendirme
                 log("Adım 3a: Multi-API Seslendirme")
                 if not komut_calistir(["python", "moduller/seslendirmen_multiapi.py", json_yolu, ses_klasoru]):
-                    raise Exception("Multi-API Seslendirmen modülü başarısız oldu.")
+                    self.checkpoint_manager.fail_operation("varlik_uretimi", "Multi-API Seslendirmen modülü başarısız oldu")
                 
                 # Sonra Multi-API görsel üretimi
                 log("Adım 3b: Multi-API Görsel Üretimi")
                 if not komut_calistir(["python", "moduller/gorsel_yonetmen_multiapi.py", json_yolu, gorsel_klasoru]):
-                    raise Exception("Multi-API Görsel yönetmen modülü başarısız oldu.")
+                    self.checkpoint_manager.fail_operation("varlik_uretimi", "Multi-API Görsel yönetmen modülü başarısız oldu")
                 
                 # Üretilen dosyaları topla
                 ses_dosyalari = [os.path.join(ses_klasoru, f) for f in os.listdir(ses_klasoru) if f.endswith('.wav')]
                 gorsel_dosyalari = [os.path.join(gorsel_klasoru, f) for f in os.listdir(gorsel_klasoru) if f.endswith('.png')]
-                self.adimi_tamamla("varlik_uretimi", ses_dosyalari + gorsel_dosyalari)
+                all_files = ses_dosyalari + gorsel_dosyalari
+                self.checkpoint_manager.complete_operation("varlik_uretimi", all_files)
+                # Legacy support
+                self.adimi_tamamla("varlik_uretimi", all_files)
 
             # Adım 4: MONTAJ ÖNCESİ HASH KONTROLÜ + KURGU
-            if not self.adimi_gec("kurgu"):
+            if not self.checkpoint_manager.start_operation("kurgu", OperationType.VIDEO):
                 log("Adım 4: Montaj Öncesi Hash Kontrolü")
                 if not self.montaj_oncesi_hash_kontrol():
                     log("❌ MONTAJ İÇİN HAZIR DEĞİL - Varlık uyumsuzluğu tespit edildi", "ERROR")
@@ -376,11 +387,13 @@ class FlexibleYapimci:
                 
                 log("Adım 4: Kurgu ve Montaj")
                 if not komut_calistir(["python", "moduller/kurgu.py", json_yolu, ses_klasoru, gorsel_klasoru, final_video_yolu]):
-                    raise Exception("Kurgu modülü başarısız oldu.")
+                    self.checkpoint_manager.fail_operation("kurgu", "Kurgu modülü başarısız oldu")
+                self.checkpoint_manager.complete_operation("kurgu", [final_video_yolu])
+                # Legacy support
                 self.adimi_tamamla("kurgu")
             
             # Adım 5: YouTube Yükleme
-            if not self.adimi_gec("youtube_upload"):
+            if not self.checkpoint_manager.start_operation("youtube_upload", OperationType.UPLOAD):
                 log("Adım 5: YouTube Yükleme")
                 
                 # Service account kontrolü
@@ -388,15 +401,20 @@ class FlexibleYapimci:
                 credentials_file = "credentials.json"
                 
                 if not os.path.exists(service_account_file) and not os.path.exists(credentials_file):
-                    raise Exception("YouTube için kimlik doğrulama dosyası bulunamadı! (service_account.json veya credentials.json gerekli)")
+                    self.checkpoint_manager.fail_operation("youtube_upload", "YouTube için kimlik doğrulama dosyası bulunamadı! (service_account.json veya credentials.json gerekli)")
 
                 if not komut_calistir(["python", "moduller/youtube_uploader.py", final_video_yolu, json_yolu]):
-                    raise Exception("YouTube Uploader modülü başarısız oldu.")
+                    self.checkpoint_manager.fail_operation("youtube_upload", "YouTube Uploader modülü başarısız oldu")
+                self.checkpoint_manager.complete_operation("youtube_upload")
+                # Legacy support
                 self.adimi_tamamla("youtube_upload")
 
             # API kullanım raporunu göster
             log("📊 Multi-API Kullanım Raporu:")
             print(self.api_manager.get_usage_report())
+            
+            # Clean up on complete success
+            self.checkpoint_manager.cleanup_on_complete_success()
             
             log("🎉 FLEXIBLE MULTI-API PRODÜKSİYON BAŞARIYLA TAMAMLANDI!", "SUCCESS")
 
@@ -449,7 +467,11 @@ class FlexibleYapimci:
         
         log(f"📁 Proje klasörü: {self.proje_yolu}")
         
-        # Durum dosyalarını yükle
+        # Initialize checkpoint manager for this project
+        project_name = f"{kanal_slug}_{proje_konu_slug}"
+        self.checkpoint_manager = CheckpointManager(project_name, self.proje_yolu)
+        
+        # Durum dosyalarını yükle (legacy support)
         self.durumu_yukle()
         self.hash_durumunu_yukle()
 
