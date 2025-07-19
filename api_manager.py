@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import logging
@@ -214,17 +215,24 @@ class MultiAPIManager:
         
         if client_key not in self._clients:
             config = self.config.get('api_providers', provider, config_name, default={})
-            api_key = os.getenv(config.get('api_key', '').replace('${', '').replace('}', ''))
+            # Robust environment variable parsing for complex variable names like ${GEMINI_API_KEY_1}
+            api_key_template = config.get('api_key', '')
+            if api_key_template.startswith('${') and api_key_template.endswith('}'):
+                env_var_name = api_key_template[2:-1]  # Remove ${ and }
+                api_key = os.getenv(env_var_name)
+            else:
+                api_key = api_key_template
+            
+            if not api_key:
+                print(f"❌ KRITIK HATA: {env_var_name} environment variable bulunamadı!")
+                sys.exit(1)
             
             if provider == 'gemini':
                 from google import genai
                 self._clients[client_key] = genai.Client(api_key=api_key)
-            elif provider == 'openai':
-                import openai
-                self._clients[client_key] = openai.OpenAI(api_key=api_key)
-            elif provider == 'anthropic':
-                import anthropic
-                self._clients[client_key] = anthropic.Anthropic(api_key=api_key)
+            else:
+                print(f"❌ KRITIK HATA: Desteklenmeyen API provider: {provider}. Sadece 'gemini' desteklenmektedir.")
+                sys.exit(1)
         
         return self._clients[client_key]
     
