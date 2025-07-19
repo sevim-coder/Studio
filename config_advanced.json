@@ -1,0 +1,69 @@
+{
+  "api_providers": {
+    "gemini": {
+      "primary": {
+        "api_key": "${GEMINI_API_KEY_1}",
+        "model_text": "gemini-2.5-pro",
+        "model_tts": "gemini-2.5-flash-preview-tts",
+        "model_image": "imagen-4.0-generate-preview-06-06",
+        "daily_quota": 1000,
+        "cost_per_request": 0.01,
+        "priority": 1
+      },
+      "secondary": {
+        "api_key": "${GEMINI_API_KEY_2}",
+        "model_text": "gemini-2.5-pro",
+        "model_tts": "gemini-2.5-flash-preview-tts",
+        "model_image": "imagen-4.0-generate-preview-06-06",
+        "daily_quota": 1000,
+        "cost_per_request": 0.01,
+        "priority": 2
+      },
+      "tertiary": {
+        "api_key": "${GEMINI_API_KEY_3}",
+        "model_text": "gemini-2.5-pro",
+        "model_tts": "gemini-2.5-flash-preview-tts",
+        "model_image": "imagen-4.0-generate-preview-06-06",
+        "daily_quota": 1000,
+        "cost_per_request": 0.01,
+        "priority": 3
+      }
+    }
+  },
+  "failover_ayarlari": {
+    "max_retry_per_api": 3,
+    "retry_delay_seconds": 5,
+    "quota_check_enabled": true,
+    "cost_tracking_enabled": true,
+    "fallback_strategy": "priority_order"
+  },
+  "sistem_ayarlari": {
+    "log_dosyasi": "yapimci_logs.txt",
+    "log_level": "INFO",
+    "max_segment_sayisi": 100,
+    "disk_min_alan_mb": 2000,
+    "cache_klasoru": ".cache",
+    "gecici_klasor": "gecici_klipler"
+  },
+  "ffmpeg_ayarlari": {
+    "video_codec": "libx264",
+    "video_preset": "medium",
+    "video_crf": 23,
+    "audio_codec": "aac",
+    "audio_bitrate": "192k",
+    "output_format": "mp4"
+  },
+  "kalite_kontrol": {
+    "min_ses_suresi": 0.5,
+    "min_video_resolution": "320x240",
+    "min_file_size_bytes": 1024,
+    "max_file_size_mb": 500
+  },
+  "youtube_ayarlari": {
+    "varsayilan_gizlilik": "private",
+    "varsayilan_kategori": "22",
+    "max_baslik_uzunluk": 100,
+    "max_aciklama_uzunluk": 5000
+  }
+}
+
