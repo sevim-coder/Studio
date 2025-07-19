@@ -13,8 +13,6 @@ if parent_dir not in sys.path:
 
 from google import genai
 from google.genai import types
-import openai
-import anthropic
 from api_manager import get_api_manager, APIType
 
 class MultiAPISenarist:
@@ -129,39 +127,13 @@ class MultiAPISenarist:
             )
             return response.text.strip()
         
-        def openai_request(client, config):
-            response = client.chat.completions.create(
-                model=config['model_text'],
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": f"Konu: {konu}"}
-                ],
-                temperature=0.7,
-                max_tokens=4000
-            )
-            return response.choices[0].message.content.strip()
-        
-        def anthropic_request(client, config):
-            response = client.messages.create(
-                model=config['model_text'],
-                system=system_instruction,
-                messages=[{"role": "user", "content": f"Konu: {konu}"}],
-                max_tokens=4000
-            )
-            return response.content[0].text.strip()
-        
-        # Provider'a göre doğru request fonksiyonunu seç
+        # Provider'a göre doğru request fonksiyonunu seç - Sadece Google/Gemini desteklenir
         def unified_request(client, config):
-            provider = config.get('provider_type', 'gemini')
-            
+            # Robust Gemini client detection
             if hasattr(client, 'models') and hasattr(client.models, 'generate_content'):  # Gemini
                 return gemini_request(client, config)
-            elif hasattr(client, 'chat') and hasattr(client.chat, 'completions'):  # OpenAI
-                return openai_request(client, config)
-            elif hasattr(client, 'messages') and hasattr(client.messages, 'create'):  # Anthropic
-                return anthropic_request(client, config)
             else:
-                raise Exception(f"Bilinmeyen API client tipi: {type(client)}")
+                raise Exception(f"❌ KRITIK HATA: Sadece Google/Gemini client'ları desteklenmektedir. Client tipi: {type(client)}")
         
         return self.api_manager.make_request(APIType.TEXT, unified_request)
 

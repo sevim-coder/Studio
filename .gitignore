@@ -1,0 +1,73 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+credentials.json
+service_account.json
+*.key
+*_key.json
+
+# API usage tracking
+api_usage.json
+
+# Log files
+*.log
+*.txt
+yapimci_logs.txt
+
+# Temporary and cache files
+.cache/
+gecici_klipler/
+temp/
+tmp/
+*.tmp
+
+# Media files (generated content)
+*.mp4
+*.mp3
+*.wav
+*.png
+*.jpg
+*.jpeg
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# FFmpeg temporary files
+ffmpeg2pass-*

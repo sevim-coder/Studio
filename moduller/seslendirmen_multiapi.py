@@ -13,7 +13,6 @@ if parent_dir not in sys.path:
 
 from google import genai
 from google.genai import types
-import openai
 from api_manager import get_api_manager, APIType
 
 class MultiAPISeslendirmen:
@@ -23,16 +22,57 @@ class MultiAPISeslendirmen:
         print("🤖 Multi-API seslendirme sistemi hazır!")
     
     def wave_file(self, filename, pcm, channels=1, rate=24000, sample_width=2):
-        """WAV dosyası oluşturur"""
+        """WAV dosyası oluşturur - Robust error handling with sys.exit(1) on corruption"""
         try:
+            # Validate input parameters
+            if not filename or not pcm:
+                print(f"❌ KRITIK HATA: Geçersiz WAV dosyası parametreleri - filename: {filename}, pcm data: {len(pcm) if pcm else 0} bytes")
+                sys.exit(1)
+                
+            if channels < 1 or channels > 2:
+                print(f"❌ KRITIK HATA: Geçersiz kanal sayısı: {channels} (1 veya 2 olmalı)")
+                sys.exit(1)
+                
+            if rate < 8000 or rate > 48000:
+                print(f"❌ KRITIK HATA: Geçersiz sample rate: {rate} Hz (8000-48000 arası olmalı)")
+                sys.exit(1)
+                
+            if sample_width not in [1, 2, 4]:
+                print(f"❌ KRITIK HATA: Geçersiz sample width: {sample_width} (1, 2 veya 4 olmalı)")
+                sys.exit(1)
+            
+            # Create WAV file with robust error handling
             with wave.open(filename, "wb") as wf:
                 wf.setnchannels(channels)
                 wf.setsampwidth(sample_width)
                 wf.setframerate(rate)
                 wf.writeframes(pcm)
+                
+            # Verify the created file
+            if not os.path.exists(filename):
+                print(f"❌ KRITIK HATA: WAV dosyası oluşturulamadı: {filename}")
+                sys.exit(1)
+                
+            # Verify file size is reasonable
+            file_size = os.path.getsize(filename)
+            if file_size < 100:  # Less than 100 bytes is likely corrupted
+                print(f"❌ KRITIK HATA: WAV dosyası çok küçük (bozuk olabilir): {filename} - {file_size} bytes")
+                os.remove(filename)  # Clean up corrupted file
+                sys.exit(1)
+                
+        except wave.Error as e:
+            print(f"❌ KRITIK HATA: WAV dosyası formatı hatası: {e} - Dosya: {filename}")
+            if os.path.exists(filename):
+                os.remove(filename)  # Clean up corrupted file
+            sys.exit(1)
+        except IOError as e:
+            print(f"❌ KRITIK HATA: WAV dosyası yazma hatası: {e} - Dosya: {filename}")
+            sys.exit(1)
         except Exception as e:
-            print(f"❌ WAV dosyası oluşturma hatası: {e}")
-            raise
+            print(f"❌ KRITIK HATA: WAV dosyası oluşturma sırasında beklenmeyen hata: {e} - Dosya: {filename}")
+            if os.path.exists(filename):
+                os.remove(filename)  # Clean up corrupted file
+            sys.exit(1)
     
     def json_oku(self, json_dosya_yolu):
         """JSON dosyasını okur"""
